@@ -1,0 +1,91 @@
+pipeline {
+    agent none
+
+    stages {
+        stage('Backend Build') {
+            agent {
+                docker {
+                    image 'maven:3.8.1-adoptopenjdk-11'
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
+            steps {
+                echo 'Building backend with Maven...'
+                sh 'mvn clean compile'  // Adjust to your project structure
+                // Optional: run tests
+                // sh 'mvn test'
+            }
+            post {
+                success {
+                    echo 'Backend build successful.'
+                }
+                failure {
+                    echo 'Backend build failed.'
+                }
+            }
+        }
+
+        stage('Frontend Build') {
+            agent {
+                docker {
+                    image 'node:16-alpine'
+                }
+            }
+            steps {
+                echo 'Installing frontend dependencies...'
+                sh 'npm install'
+                echo 'Building frontend...'
+                sh 'npm run build'  // Adjust to your package.json script
+            }
+            post {
+                success {
+                    echo 'Frontend build successful.'
+                }
+                failure {
+                    echo 'Frontend build failed.'
+                }
+            }
+        }
+
+        stage('Database Test') {
+            agent {
+                docker {
+                    image 'mysql:latest'
+                    args '-e MYSQL_ALLOW_EMPTY_PASSWORD=yes'
+                }
+            }
+            steps {
+                echo 'Waiting for MySQL to start...'
+                sh 'sleep 15'  // Give MySQL time to initialize
+                
+                echo 'Running SELECT query on test database...'
+                sh '''
+                    mysql --protocol=tcp -uroot -e "
+                        CREATE DATABASE IF NOT EXISTS testdb;
+                        USE testdb;
+                        CREATE TABLE IF NOT EXISTS xyz (
+                            id INT PRIMARY KEY,
+                            name VARCHAR(50)
+                        );
+                        INSERT INTO xyz VALUES (1, 'sample');
+                        SELECT * FROM xyz;
+                    "
+                '''
+            }
+            post {
+                success {
+                    echo 'Database query executed successfully.'
+                }
+                failure {
+                    echo 'Database query failed.'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline execution completed.'
+        }
+    }
+}
