@@ -1,1 +1,12 @@
 
+pipeline {
+    agent any
+
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'My first Jenkins pipeline from Git SCM'
+            }
+        }
+    }
+}
